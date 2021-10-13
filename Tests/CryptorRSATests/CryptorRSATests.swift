@@ -20,10 +20,7 @@
 //
 
 import XCTest
-#if os(Linux)
-    import OpenSSL
-#endif
-
+import OpenSSL
 @testable import CryptorRSA
 
 @available(macOS 10.12, iOS 10.3, watchOS 3.3, tvOS 12.0, *)
@@ -39,11 +36,7 @@ class CryptorRSATests: XCTestCase {
         }
     }
     
-    #if os(Linux)
-        static let bundle: Bundle? = nil
-    #else
-        static let bundle: Bundle? = Bundle(for: CryptorRSATests.self)
-    #endif
+    static let bundle: Bundle? = nil
 	
 	///
 	/// Platform independent utility function to locate test files.
@@ -843,11 +836,7 @@ cSNAr2BBC8bJ9AfZnRu9+Y1/VyXY91R95bQoMFfgwZdMUEyuL5gG524QplqF
 		var data = Data(count: count)
 		data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) -> Void in
 			guard let baseAddress = bytes.baseAddress else { return }
-			#if os(Linux)
-				_ = RAND_bytes(baseAddress.assumingMemoryBound(to: UInt8.self), Int32(count))
-			#else
-				_ = SecRandomCopyBytes(kSecRandomDefault, count, baseAddress.assumingMemoryBound(to: UInt8.self))
-            #endif
+            _ = RAND_bytes(baseAddress.assumingMemoryBound(to: UInt8.self), Int32(count))
 		}
 		return data
 	}

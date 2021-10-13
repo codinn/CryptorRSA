@@ -1,4 +1,4 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.5
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 //
@@ -22,15 +22,10 @@
 
 import PackageDescription
 
-var dependencies: [Package.Dependency] = []
-var targetDependencies: [Target.Dependency] = []
-
-	
 #if os(Linux)
-	
-	dependencies.append(.package(url: "https://github.com/Kitura/OpenSSL.git", from: "2.2.200"))
-	targetDependencies.append(.byName(name: "OpenSSL"))
-	
+let dependencies: [Package.Dependency] = [.package(url: "https://github.com/Kitura/OpenSSL.git", from: "2.2.200")]
+#else
+let dependencies: [Package.Dependency] = [.package(url: "https://github.com/codinn/OpenSSL.git", branch: "master")]
 #endif
 
 let package = Package(
@@ -48,11 +43,12 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "CryptorRSA",
-            dependencies: targetDependencies
+            dependencies: ["OpenSSL"]
         ),
         .testTarget(
             name: "CryptorRSATests",
-            dependencies: ["CryptorRSA"]
+            dependencies: ["CryptorRSA"],
+            exclude: ["keys/"]
         )
     ]
 )

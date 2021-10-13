@@ -20,10 +20,7 @@
 //
 
 import Foundation
-
-#if os(Linux)
-    import OpenSSL
-#endif
+import OpenSSL
 
 // MARK: -
 
@@ -221,7 +218,7 @@ public class CryptorRSA {
 				throw Error(code: CryptorRSA.ERR_KEY_NOT_PUBLIC, reason: "Supplied key is not public")
 			}
 			
-			#if os(Linux)
+			// #if os(Linux)
                 switch algorithm {
                 case .gcm:
                     return try encryptedGCM(with: key)
@@ -229,23 +226,6 @@ public class CryptorRSA {
                     // Same algorithm is used regardless of sha
                     return try encryptedCBC(with: key)
                 }
-			#else
-				
-				var response: Unmanaged<CFError>? = nil
-				let eData = SecKeyCreateEncryptedData(key.reference, algorithm.alogrithmForEncryption, self.data as CFData, &response)
-				if response != nil {
-				
-					guard let error = response?.takeRetainedValue() else {
-					
-						throw Error(code: CryptorRSA.ERR_ENCRYPTION_FAILED, reason: "Encryption failed. Unable to determine error.")
-					}
-				
-					throw Error(code: CryptorRSA.ERR_ENCRYPTION_FAILED, reason: "Encryption failed with error: \(error)")
-				}
-			
-				return EncryptedData(with: eData! as Data)
-
-			#endif
 		}
 		
 		///
@@ -271,7 +251,7 @@ public class CryptorRSA {
 				throw Error(code: CryptorRSA.ERR_KEY_NOT_PUBLIC, reason: "Supplied key is not private")
 			}
 			
-			#if os(Linux)
+			// #if os(Linux)
 				
                 switch algorithm {
                 case .gcm:
@@ -280,27 +260,9 @@ public class CryptorRSA {
                     // Same algorithm is used regardless of sha
                     return try decryptedCBC(with: key)
                 }
-                
-			#else
-				
-				var response: Unmanaged<CFError>? = nil
-				let pData = SecKeyCreateDecryptedData(key.reference, algorithm.alogrithmForEncryption, self.data as CFData, &response)
-				if response != nil {
-				
-					guard let error = response?.takeRetainedValue() else {
-					
-						throw Error(code: CryptorRSA.ERR_DECRYPTION_FAILED, reason: "Decryption failed. Unable to determine error.")
-					}
-				
-					throw Error(code: CryptorRSA.ERR_DECRYPTION_FAILED, reason: "Decryption failed with error: \(error)")
-				}
-				
-				return PlaintextData(with: pData! as Data)
-				
-			#endif
 		}
 		
-        #if os(Linux)
+        // #if os(Linux)
 	        ///
     	    /// Encrypt the data using AES GCM SHA1 for cross platform support.
 			///
@@ -755,7 +717,7 @@ public class CryptorRSA {
 				return PlaintextData(with: Data(bytes: decrypted, count: Int(decMsgLen)))
 			}
 			
-        #endif
+        // #endif
 		
 		// MARK: --- Sign/Verification
 		
@@ -783,7 +745,7 @@ public class CryptorRSA {
 				throw Error(code: CryptorRSA.ERR_KEY_NOT_PRIVATE, reason: "Supplied key is not private")
 			}
 			
-			#if os(Linux)
+			// #if os(Linux)
 			
 				let md_ctx = EVP_MD_CTX_new_wrapper()
 
@@ -838,35 +800,6 @@ public class CryptorRSA {
                 }
                 
                 return SignedData(with: Data(bytes: sig, count: sig_len))
-
-			#else
-				
-				let signingAlgorithm: SecKeyAlgorithm
-				if usePSS {
-					if #available(macOS 10.13, iOS 11.0, watchOS 4.0, *) {
-						signingAlgorithm = usePSS ? algorithm.algorithmForPssSignature : algorithm.algorithmForSignature
-					} else {
-						throw Error(code: ERR_NOT_IMPLEMENTED, reason: "RSA-PSS only supported on macOS 10.13/iOS 10.0 and above.")
-					}
-				} else {
-					signingAlgorithm = algorithm.algorithmForSignature
-				}
-			
-				var response: Unmanaged<CFError>? = nil
-				let sData = SecKeyCreateSignature(key.reference, signingAlgorithm, self.data as CFData, &response)
-				if response != nil {
-				
-					guard let error = response?.takeRetainedValue() else {
-					
-						throw Error(code: CryptorRSA.ERR_SIGNING_FAILED, reason: "Signing failed. Unable to determine error.")
-					}
-				
-					throw Error(code: CryptorRSA.ERR_SIGNING_FAILED, reason: "Signing failed with error: \(error)")
-				}
-				
-				return SignedData(with: sData! as Data)
-				
-			#endif
 		}
 		
 		///
@@ -899,7 +832,7 @@ public class CryptorRSA {
 				throw Error(code: CryptorRSA.ERR_NOT_SIGNED_DATA, reason: "Supplied signature is not of signed data type")
 			}
 			
-			#if os(Linux)
+			// #if os(Linux)
 				
 				let md_ctx = EVP_MD_CTX_new_wrapper()
 
@@ -944,35 +877,6 @@ public class CryptorRSA {
                 })
                 
                 return (rc == 1) ? true : false
-				
-			#else
-				
-				let signingAlgorithm: SecKeyAlgorithm
-				if usePSS {
-					if #available(macOS 10.13, iOS 11.0, watchOS 4.0, *) {
-						signingAlgorithm = usePSS ? algorithm.algorithmForPssSignature : algorithm.algorithmForSignature
-					} else {
-						throw Error(code: ERR_NOT_IMPLEMENTED, reason: "RSA-PSS only supported on macOS 10.13/iOS 10.0 and above.")
-					}
-				} else {
-					signingAlgorithm = algorithm.algorithmForSignature
-				}
-
-				var response: Unmanaged<CFError>? = nil
-				let result = SecKeyVerifySignature(key.reference, signingAlgorithm, self.data as CFData, signature.data as CFData, &response)
-				if response != nil {
-				
-					guard let error = response?.takeRetainedValue() else {
-					
-						throw Error(code: CryptorRSA.ERR_VERIFICATION_FAILED, reason: "Signature verification failed. Unable to determine error.")
-					}
-				
-					throw Error(code: CryptorRSA.ERR_VERIFICATION_FAILED, reason: "Signature verification failed with error: \(error)")
-				}
-			
-				return result
-			
-			#endif
 		}
 		
 		// MARK: --- Utility

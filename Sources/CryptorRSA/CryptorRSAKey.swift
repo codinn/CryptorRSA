@@ -19,12 +19,7 @@
 // 	limitations under the License.
 //
 
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-	import CommonCrypto
-#elseif os(Linux)
-	import OpenSSL
-#endif
-
+import OpenSSL
 import Foundation
 
 // MARK: -
@@ -34,15 +29,9 @@ extension CryptorRSA {
 	
 	// MARK: Type Aliases
 	
-	#if os(Linux)
+	// #if os(Linux)
 	
 		public typealias NativeKey = OpaquePointer?
-	
-	#else
-	
-		public typealias NativeKey = SecKey
-	
-	#endif
 	
 	// MARK: Class Functions
 	
@@ -274,7 +263,7 @@ extension CryptorRSA {
 	///
 	internal class func createPublicKey(data: Data) throws -> PublicKey {
 		
-		#if os(Linux)
+		// #if os(Linux)
 		
 			let certbio = BIO_new(BIO_s_mem())
 			defer {
@@ -310,80 +299,6 @@ extension CryptorRSA {
 			}
 		
 			return PublicKey(with: evp_key)
-	
-		#else
-		
-			// Create a DER-encoded X.509 certificate object from the DER data...
-			let certificateData = SecCertificateCreateWithData(nil, data as CFData)
-			guard let certData = certificateData else {
-				
-				throw Error(code: ERR_CREATE_CERT_FAILED, reason: "Unable to create certificate from certificate data.")
-			}
-			
-			var key: SecKey? = nil
-        
-            #if swift(>=4.2)
-                #if os(macOS)
-                    if #available(macOS 10.14, *) {
-                        key = SecCertificateCopyKey(certData)
-                    } else {
-                        // Now extract the public key from it...
-                        let status: OSStatus = withUnsafeMutablePointer(to: &key) { ptr in
-                            
-                            // Retrieves the public key from a certificate...
-                            SecCertificateCopyPublicKey(certData, UnsafeMutablePointer(ptr))
-                        }
-
-                        if status != errSecSuccess {
-                
-                            throw Error(code: ERR_EXTRACT_PUBLIC_KEY_FAILED, reason: "Unable to extract public key from data.")
-                        }
-                    }
-                #else
-                    let copyKey: (SecCertificate) -> SecKey?
-
-                    #if targetEnvironment(macCatalyst)
-                        copyKey = SecCertificateCopyKey
-                    #else
-                        if #available(iOS 12.0, watchOS 5.0, *) {
-                            copyKey = SecCertificateCopyKey
-                        } else {
-                            copyKey = SecCertificateCopyPublicKey
-                        }
-                    #endif
-                    
-                    key = copyKey(certData)
-                #endif
-            #else
-                #if os(macOS)
-
-                    // Now extract the public key from it...
-                    let status: OSStatus = withUnsafeMutablePointer(to: &key) { ptr in
-                        
-                        // Retrieves the public key from a certificate...
-                        SecCertificateCopyPublicKey(certData, UnsafeMutablePointer(ptr))
-                    }
-
-                    if status != errSecSuccess {
-            
-                        throw Error(code: ERR_EXTRACT_PUBLIC_KEY_FAILED, reason: "Unable to extract public key from data.")
-                    }
-
-                #else
-                   
-                    key = SecCertificateCopyPublicKey(certData)
-
-                #endif
-            #endif
-		
-			guard let createdKey = key else {
-				
-				throw Error(code: ERR_EXTRACT_PUBLIC_KEY_FAILED, reason: "Unable to extract public key from data.")
-			}
-			
-			return PublicKey(with: createdKey)
-			
-		#endif		
 	}
 	
 	// MARK: -- Private Key Creation
@@ -532,7 +447,7 @@ extension CryptorRSA {
 	///
 	public class func makeKeyPair(_ keySize: RSAKey.KeySize) throws -> (PrivateKey, PublicKey) {
 		
-        #if os(Linux)
+        // #if os(Linux)
 			var pkey = EVP_PKEY_new()
 			let ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nil)
 			defer {
@@ -550,25 +465,6 @@ extension CryptorRSA {
 			let pubKey = try CryptorRSA.createPublicKey(withPEM: publicPem)
 
 			return(privKey, pubKey)
-
-        #else
-
-			let parameters: [String: AnyObject] = [
-				kSecAttrKeyType as String:          kSecAttrKeyTypeRSA,
-				kSecAttrKeySizeInBits as String:    keySize.bits as AnyObject,
-				kSecPublicKeyAttrs as String: [ kSecAttrIsPermanent as String: true as AnyObject ] as AnyObject,
-				kSecPrivateKeyAttrs as String: [ kSecAttrIsPermanent as String: true as AnyObject ] as AnyObject,
-				]
-			var pubKey, privKey: SecKey?
-			let status = SecKeyGeneratePair(parameters as CFDictionary, &pubKey, &privKey)
-			guard status == 0, let newPubKey = pubKey, let newPrivKey = privKey else {
-				throw Error(code: ERR_INIT_PK, reason: "Could not generate rsa pair for \(keySize.bits) bits")
-			}
-			let privateKey = PrivateKey(with: newPrivKey)
-			let publicKey = PublicKey(with: newPubKey)
-
-			return (privateKey, publicKey)
-        #endif
 	}
     
 	
@@ -612,12 +508,12 @@ extension CryptorRSA {
 		/// The stored key
 		internal let reference: NativeKey
         
-        #if os(Linux)
+        // #if os(Linux)
         	var publicKeyBytes: Data?
 			deinit {
 				EVP_PKEY_free(.make(optional: reference))
 			}
-        #endif
+        // #endif
         
 		/// Represents the type of key data contained.
 		public internal(set) var type: KeyType = .publicType
@@ -647,13 +543,13 @@ extension CryptorRSA {
 			self.pemString = CryptorRSA.convertDerToPem(from: data, type: type)
 			self.type = type            
             reference = try CryptorRSA.createKey(from: data, type: type)
-			#if os(Linux)
+			// #if os(Linux)
 			if let pubString = try? RSAKey.getPEMString(reference: reference, keyType: .publicType, stripped: true),
 				let base64String = try? CryptorRSA.base64String(for: pubString),
 				let derData = Data(base64Encoded: base64String)	{
 				self.publicKeyBytes = derData
 			}
-			#endif
+			// #endif
 		}
 		
 		///
@@ -670,15 +566,15 @@ extension CryptorRSA {
 			self.type = type
 			self.reference = nativeKey
 			self.pemString = (try? RSAKey.getPEMString(reference: nativeKey, type: type)) ?? ""
-			#if os(Linux)
+			// #if os(Linux)
 			if let base64String = try? CryptorRSA.base64String(for: pemString),
 				let derData = Data(base64Encoded: base64String)	{
 				self.publicKeyBytes = derData
 			}
-			#endif
+			// #endif
 		}
 		
-		#if os(Linux) && !swift(>=4.1)
+		#if !swift(>=4.1)
 		
 			///
 			/// Create a key using a native key.
@@ -709,21 +605,11 @@ extension CryptorRSA {
 		///
 		static func getPEMString(reference: NativeKey, type: KeyType) throws -> String {
 
-			#if os(Linux)
+			// #if os(Linux)
 				return try getPEMString(reference: reference, keyType: type, stripped: true)
-			#else
-				var error: Unmanaged<CFError>? = nil
-				guard let keyBytes = SecKeyCopyExternalRepresentation(reference, &error) else {
-					guard let error = error?.takeRetainedValue() else {
-						throw Error(code: ERR_INIT_PK, reason: "Couldn't read PEM String")
-					}
-					throw error
-				}
-				return CryptorRSA.convertDerToPem(from: keyBytes as Data, type: type)
-			#endif            
 		}
 		
-		#if os(Linux)
+		// #if os(Linux)
 			///
 			///	Get a PEM string of a native key.
 			///
@@ -766,7 +652,7 @@ extension CryptorRSA {
 					return pkcs1PEM
 				}
 			}
-		#endif
+		// #endif
 	}
 	// MARK: -
 	
@@ -877,7 +763,7 @@ extension CryptorRSA {
 			super.init(with: nativeKey, type: .publicType)
 		}
 
-		#if os(Linux) && !swift(>=4.1)
+		#if !swift(>=4.1)
 		
 			///
 			/// Create a key using a native key.
