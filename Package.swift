@@ -25,7 +25,7 @@ import PackageDescription
 #if os(Linux)
 let dependencies: [Package.Dependency] = [.package(url: "https://github.com/Kitura/OpenSSL.git", from: "2.2.200")]
 #else
-let dependencies: [Package.Dependency] = [.package(url: "https://github.com/codinn/OpenSSL.git", from: "1.1.1+l1")]
+let dependencies: [Package.Dependency] = [.package(url: "https://github.com/codinn/OpenSSL.git", from: "1.1.1-l1")]
 #endif
 
 let package = Package(
